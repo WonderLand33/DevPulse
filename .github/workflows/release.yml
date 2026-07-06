@@ -1,0 +1,155 @@
+name: Release
+
+# 推送 v* 标签自动构建三平台安装包并发布 GitHub Release；
+# 也支持手动触发（workflow_dispatch）用于验证构建是否通过，不会创建 Release。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+env:
+  FLUTTER_VERSION: "3.44.2"
+  APP_NAME: DevPulse
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------- Windows ----------------
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 获取版本号
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build windows --release
+
+      - name: 打包 zip
+        shell: pwsh
+        run: |
+          $stage = "dist/${{ env.APP_NAME }}"
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item -Path "build/windows/x64/runner/Release/*" -Destination $stage -Recurse -Force
+          Compress-Archive -Path $stage -DestinationPath "dist/${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: dist/*.zip
+
+  # ---------------- macOS ----------------
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 获取版本号
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build macos --release
+
+      - name: 打包 zip（未签名/未公证，安装后需在「系统设置-隐私与安全性」放行）
+        run: |
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            "build/macos/Build/Products/Release/${{ env.APP_NAME }}.app" \
+            "dist/${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-macos.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-package
+          path: dist/*.zip
+
+  # ---------------- Linux ----------------
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Linux 桌面构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libjsoncpp-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 获取版本号
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build linux --release
+
+      - name: 打包 tar.gz
+        run: |
+          mkdir -p dist
+          tar -C build/linux/x64/release -czf \
+            "dist/${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-linux-x64.tar.gz" bundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: dist/*.tar.gz
+
+  # ---------------- 发布 Release（仅打 tag 时触发）----------------
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

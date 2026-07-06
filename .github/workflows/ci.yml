@@ -1,0 +1,25 @@
+name: CI
+
+# 日常提交/PR 的快速检查（静态分析 + 单元测试），与仅在打 tag 时运行的
+# release.yml 三平台构建分开，避免每次 push 都跑一遍完整打包流程。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.2"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
