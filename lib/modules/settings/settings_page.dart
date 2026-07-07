@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/crash/crash_dialog.dart';
+import '../../core/crash/crash_log.dart';
 import '../../core/layout/tool_scaffold.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
+import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -119,6 +124,8 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: Dims.gapMd),
+              const _CrashLogCard(),
+              const SizedBox(height: Dims.gapMd),
               _aboutCard(p),
             ],
           ),
@@ -191,6 +198,89 @@ class SettingsPage extends ConsumerWidget {
               style: TextStyle(fontSize: 12.5, color: p.textSecondary)),
         ],
       ),
+    );
+  }
+}
+
+/// 崩溃日志：展示本地日志文件位置，并可一键复制全部内容 / 反馈到 Issues。
+/// 主要用于原生级崩溃（应用来不及弹出错误对话框）之后，事后排查。
+class _CrashLogCard extends StatefulWidget {
+  const _CrashLogCard();
+  @override
+  State<_CrashLogCard> createState() => _CrashLogCardState();
+}
+
+class _CrashLogCardState extends State<_CrashLogCard> {
+  String? _path;
+  String _content = '';
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final path = await CrashLog.instance.filePath;
+    final content = await CrashLog.instance.readAll();
+    if (!mounted) return;
+    setState(() {
+      _path = path;
+      _content = content;
+      _loading = false;
+    });
+  }
+
+  int get _entryCount => _content
+      .split('-' * 60)
+      .where((s) => s.trim().isNotEmpty)
+      .length;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return SectionCard(
+      title: '崩溃日志',
+      icon: Icons.bug_report_outlined,
+      child: _loading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: Dims.gapSm),
+              child: LinearProgressIndicator(),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ResultRow(label: '文件位置', value: _path ?? '', mono: true),
+                const SizedBox(height: 2),
+                Text(
+                  _content.isEmpty ? '暂无记录，出现异常时会自动写入这里' : '已记录 $_entryCount 条异常',
+                  style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                ),
+                if (_content.isNotEmpty) ...[
+                  const SizedBox(height: Dims.gapSm),
+                  Wrap(
+                    spacing: Dims.gapSm,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                              ClipboardData(text: _content));
+                          if (context.mounted) showToast(context, '已复制全部日志');
+                        },
+                        icon: const Icon(Icons.copy_all_outlined, size: 15),
+                        label: const Text('复制全部日志'),
+                      ),
+                      TextButton(
+                        onPressed: () => launchUrl(Uri.parse(kIssuesUrl),
+                            mode: LaunchMode.externalApplication),
+                        child: const Text('反馈到 GitHub Issues'),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

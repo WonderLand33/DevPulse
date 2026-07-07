@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/crash/crash_dialog.dart';
 import 'core/layout/app_shell.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
@@ -17,6 +18,7 @@ class DevPulseApp extends ConsumerWidget {
     kUserMonoFamily = ref.watch(monoFontProvider);
 
     return MaterialApp(
+      navigatorKey: crashNavigatorKey,
       title: 'DevPulse',
       debugShowCheckedModeBanner: false,
       themeMode: mode,

@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:devpulse/app.dart';
+import 'package:devpulse/core/crash/crash_dialog.dart';
+import 'package:devpulse/core/crash/crash_log.dart';
 import 'package:devpulse/core/storage/kv_store.dart';
 import 'package:devpulse/modules/base64_tool/base64_page.dart';
 import 'package:devpulse/modules/json_tool/json_page.dart';
@@ -243,5 +245,48 @@ void main() {
     expect(find.descendant(of: scope, matching: find.textContaining('无效')),
         findsOneWidget,
         reason: '应显示错误提示');
+  });
+
+  testWidgets('崩溃日志：触发异常后弹窗展示、可复制、并落盘到本地文件',
+      (tester) async {
+    await KvStore.instance.init();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const DevPulseApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // 直接调用 reportCrash（等价于全局错误钩子捕获到异常后的处理路径），
+    // 不依赖真的让某个组件抛错。
+    // ignore: unawaited_futures
+    reportCrash(Exception('集成测试模拟异常'), StackTrace.current, source: 'IntegrationTest');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('应用出现了一个错误'), findsOneWidget, reason: '应弹出崩溃对话框');
+    expect(find.textContaining('集成测试模拟异常'), findsOneWidget,
+        reason: '对话框内应展示异常内容');
+
+    // 点击复制日志，验证剪贴板确实拿到了内容。
+    await tester.tap(find.text('复制日志'));
+    await tester.pump(const Duration(milliseconds: 100));
+    final clip = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(clip?.text, contains('集成测试模拟异常'),
+        reason: '复制日志应把异常内容写入剪贴板');
+
+    // 关闭对话框。
+    await tester.tap(find.text('关闭'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('应用出现了一个错误'), findsNothing, reason: '关闭后对话框应消失');
+
+    // 验证确实落盘到本地日志文件。
+    final logContent = await CrashLog.instance.readAll();
+    expect(logContent, contains('集成测试模拟异常'),
+        reason: '异常内容应已写入本地日志文件');
+    expect(logContent, contains('IntegrationTest'));
   });
 }
