@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -52,5 +53,38 @@ void main() {
     container.read(selectedModuleProvider.notifier).select('settings');
     await tester.pump(const Duration(milliseconds: 200));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Base64 切换 文本/图片 tab 不清空已输入内容', (tester) async {
+    await KvStore.instance.init();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const DevPulseApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    container.read(selectedModuleProvider.notifier).select('base64');
+    await tester.pump(const Duration(milliseconds: 200));
+
+    const sample = 'DevPulse tab-switch regression 中文';
+    await tester.enterText(find.byType(TextField).first, sample);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text(sample), findsWidgets,
+        reason: '输入后应立即在文本 tab 中看到内容');
+
+    // 切到「图片」tab。
+    await tester.tap(find.text('图片'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+
+    // 切回「文本」tab——之前的输入不应被清空。
+    await tester.tap(find.text('文本'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text(sample), findsWidgets,
+        reason: '切回文本 tab 后，之前输入的内容应仍然存在');
   });
 }
