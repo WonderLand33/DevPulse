@@ -1,5 +1,5 @@
 /// 极简安全表达式求值器：支持 + - * / % ( ) 与小数、一元负号。
-/// 纯本地、无 eval，用于命令面板的即时运算预览。
+/// 纯本地、无 eval，用于时间戳输入框的加减运算解析。
 class Calc {
   final String _src;
   int _pos = 0;
@@ -103,15 +103,4 @@ class Calc {
     if (_pos == start) throw const FormatException('number expected');
     return double.parse(_src.substring(start, _pos));
   }
-}
-
-/// 数字友好格式化：整数不带小数，浮点去除多余 0。
-String prettyNum(double v) {
-  if (v == v.roundToDouble() && v.abs() < 1e15) {
-    return v.toInt().toString();
-  }
-  var s = v.toStringAsFixed(6);
-  s = s.replaceFirst(RegExp(r'0+$'), '');
-  s = s.replaceFirst(RegExp(r'\.$'), '');
-  return s;
 }

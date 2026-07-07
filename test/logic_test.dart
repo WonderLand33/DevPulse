@@ -7,6 +7,7 @@ import 'package:devpulse/modules/cron_tool/cron_logic.dart';
 import 'package:devpulse/modules/diff_tool/diff_logic.dart';
 import 'package:devpulse/modules/jwt_tool/jwt_logic.dart';
 import 'package:devpulse/modules/password_gen/password_logic.dart';
+import 'package:devpulse/modules/radix_tool/radix_logic.dart';
 import 'package:devpulse/modules/totp_tool/totp_logic.dart';
 import 'package:devpulse/modules/unix_time/unix_time_logic.dart';
 
@@ -174,6 +175,61 @@ void main() {
       expect(RsaLogic.verify(msg, sig.output!, pair.publicPem).ok, isTrue);
       expect(
           RsaLogic.verify('tampered', sig.output!, pair.publicPem).ok, isFalse);
+    });
+  });
+
+  group('Radix', () {
+    test('基本互转（十进制 2021）', () {
+      expect(RadixLogic.parse('2021', 10).value, 2021);
+      expect(RadixLogic.format(2021, 2), '11111100101');
+      expect(RadixLogic.format(2021, 8), '3745');
+      expect(RadixLogic.format(2021, 16), '7e5');
+      expect(RadixLogic.parse('11111100101', 2).value, 2021);
+      expect(RadixLogic.parse('3745', 8).value, 2021);
+      expect(RadixLogic.parse('7e5', 16).value, 2021);
+      expect(RadixLogic.parse('7E5', 16).value, 2021, reason: '大写字母也应可解析');
+    });
+
+    test('负数往返', () {
+      expect(RadixLogic.parse('-12', 10).value, -12);
+      expect(RadixLogic.format(-12, 2), '-1100');
+      expect(RadixLogic.parse('-1100', 2).value, -12);
+    });
+
+    test('自定义进制（36）', () {
+      // 34*36+1 = 1225
+      expect(RadixLogic.parse('y1', 36).value, 1225);
+      expect(RadixLogic.format(1225, 36), 'y1');
+    });
+
+    test('64 位有符号整数边界值', () {
+      const min = -9223372036854775808;
+      const max = 9223372036854775807;
+      expect(RadixLogic.parse('$min', 10).value, min);
+      expect(RadixLogic.parse('$max', 10).value, max);
+      expect(RadixLogic.format(min, 16), min.toRadixString(16));
+    });
+
+    test('超出 64 位范围报错', () {
+      final r = RadixLogic.parse('9223372036854775808', 10); // max + 1
+      expect(r.ok, isFalse);
+      expect(r.error, isNotNull);
+    });
+
+    test('非法字符报错（8 进制不含 9）', () {
+      final r = RadixLogic.parse('9', 8);
+      expect(r.ok, isFalse);
+    });
+
+    test('进制超出 2~36 报错', () {
+      expect(RadixLogic.parse('1', 1).ok, isFalse);
+      expect(RadixLogic.parse('1', 37).ok, isFalse);
+    });
+
+    test('空输入返回空结果而非错误', () {
+      final r = RadixLogic.parse('', 10);
+      expect(r.value, isNull);
+      expect(r.error, isNull);
     });
   });
 

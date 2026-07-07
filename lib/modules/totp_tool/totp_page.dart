@@ -209,19 +209,27 @@ class _TotpCardState extends ConsumerState<_TotpCard> {
               ),
               const SizedBox(width: Dims.gapSm),
               if (_hover)
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                // 横排 + 收紧点击区域尺寸，避免默认 IconButton 的最小点击
+                // 高度在固定高度的卡片内竖排堆叠时溢出（BOTTOM OVERFLOWED）。
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: Icon(Icons.copy_all_outlined,
-                          size: 18, color: p.accent),
+                          size: 16, color: p.accent),
                       tooltip: '复制验证码',
+                      constraints: const BoxConstraints.tightFor(
+                          width: 30, height: 30),
+                      padding: EdgeInsets.zero,
                       onPressed: loaded ? () => _copy(code) : null,
                     ),
                     IconButton(
                       icon: Icon(Icons.delete_outline,
-                          size: 18, color: p.textSecondary),
+                          size: 16, color: p.textSecondary),
                       tooltip: '删除',
+                      constraints: const BoxConstraints.tightFor(
+                          width: 30, height: 30),
+                      padding: EdgeInsets.zero,
                       onPressed: () => _confirmDelete(a),
                     ),
                   ],

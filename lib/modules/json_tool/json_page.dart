@@ -14,8 +14,8 @@ import '../../core/layout/tool_scaffold.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../../core/widgets/common.dart';
-import 'code_find_panel.dart';
 import 'json_logic.dart';
+import 'simple_find_bar.dart';
 
 /// JSON 处理器：单一可编辑代码框，所见即所得。
 /// 内置折叠展开（左侧折叠指示器）、行号、内容搜索（Ctrl+F）。
@@ -27,8 +27,8 @@ class JsonPage extends ConsumerStatefulWidget {
 
 class _JsonPageState extends ConsumerState<JsonPage> {
   late final CodeLineEditingController _code;
-  late final CodeFindController _find;
   bool _dragging = false;
+  bool _showFind = false;
   String? _error;
   int? _errLine;
   int? _errCol;
@@ -37,12 +37,10 @@ class _JsonPageState extends ConsumerState<JsonPage> {
   void initState() {
     super.initState();
     _code = CodeLineEditingController();
-    _find = CodeFindController(_code);
   }
 
   @override
   void dispose() {
-    _find.dispose();
     _code.dispose();
     super.dispose();
   }
@@ -100,52 +98,72 @@ class _JsonPageState extends ConsumerState<JsonPage> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final valid = _validity;
 
-    return ToolScaffold(
-      icon: Icons.data_object,
-      title: 'JSON 处理器',
-      subtitle: '单框所见即所得 · 折叠展开 · 内容搜索 (Ctrl+F)',
-      actions: [
-        if (valid == true)
-          const StatusBadge('合法', kind: BadgeKind.success, icon: Icons.check)
-        else if (valid == false)
-          const StatusBadge('非法', kind: BadgeKind.danger, icon: Icons.close),
-        const SizedBox(width: 4),
-        ToolbarButton(
-            icon: Icons.search, label: '搜索', dense: true, onTap: _find.findMode),
-        ToolbarButton(
-            icon: Icons.content_paste_outlined,
-            label: '粘贴',
-            dense: true,
-            onTap: _paste),
-        ToolbarButton(
-            icon: Icons.clear_all,
-            label: '清空',
-            dense: true,
-            onTap: () => setState(() {
-                  _code.text = '';
-                  _error = null;
-                })),
-        ToolbarButton(
-            icon: Icons.copy_all_outlined,
-            label: '复制',
-            dense: true,
-            onTap: () async {
-              if (_code.text.isEmpty) {
-                showToast(context, '没有可复制的内容', error: true);
-                return;
-              }
-              await Clipboard.setData(ClipboardData(text: _code.text));
-              if (context.mounted) showToast(context, '已复制到剪贴板');
-            }),
-      ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _controls(p),
-          const SizedBox(height: Dims.gap),
-          if (_error != null) _errorBanner(p),
-          Expanded(child: _editor(p, dark)),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            () => setState(() => _showFind = !_showFind),
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            () => setState(() => _showFind = !_showFind),
+      },
+      child: ToolScaffold(
+        icon: Icons.data_object,
+        title: 'JSON 处理器',
+        subtitle: '单框所见即所得 · 折叠展开 · 内容搜索 (Ctrl+F)',
+        actions: [
+          if (valid == true)
+            const StatusBadge('合法',
+                kind: BadgeKind.success, icon: Icons.check)
+          else if (valid == false)
+            const StatusBadge('非法',
+                kind: BadgeKind.danger, icon: Icons.close),
+          const SizedBox(width: 4),
+          ToolbarButton(
+              icon: Icons.search,
+              label: '搜索',
+              dense: true,
+              onTap: () => setState(() => _showFind = !_showFind)),
+          ToolbarButton(
+              icon: Icons.content_paste_outlined,
+              label: '粘贴',
+              dense: true,
+              onTap: _paste),
+          ToolbarButton(
+              icon: Icons.clear_all,
+              label: '清空',
+              dense: true,
+              onTap: () => setState(() {
+                    _code.text = '';
+                    _error = null;
+                  })),
+          ToolbarButton(
+              icon: Icons.copy_all_outlined,
+              label: '复制',
+              dense: true,
+              onTap: () async {
+                if (_code.text.isEmpty) {
+                  showToast(context, '没有可复制的内容', error: true);
+                  return;
+                }
+                await Clipboard.setData(ClipboardData(text: _code.text));
+                if (context.mounted) showToast(context, '已复制到剪贴板');
+              }),
         ],
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _controls(p),
+            const SizedBox(height: Dims.gap),
+            if (_showFind) ...[
+              SimpleFindBar(
+                controller: _code,
+                onClose: () => setState(() => _showFind = false),
+              ),
+              const SizedBox(height: Dims.gap),
+            ],
+            if (_error != null) _errorBanner(p),
+            Expanded(child: _editor(p, dark)),
+          ],
+        ),
       ),
     );
   }
@@ -169,7 +187,6 @@ class _JsonPageState extends ConsumerState<JsonPage> {
         clipBehavior: Clip.antiAlias,
         child: CodeEditor(
           controller: _code,
-          findController: _find,
           wordWrap: false,
           onChanged: (_) => setState(() {}),
           padding: const EdgeInsets.symmetric(vertical: Dims.gapSm),
@@ -200,8 +217,6 @@ class _JsonPageState extends ConsumerState<JsonPage> {
               ],
             );
           },
-          findBuilder: (context, controller, readOnly) =>
-              CodeFindPanelView(controller: controller, readOnly: readOnly),
         ),
       ),
     );

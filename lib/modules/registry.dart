@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'module.dart';
 
+export '../core/selected_module.dart';
+
 // 各模块页面。
 import 'json_tool/json_page.dart';
+import 'radix_tool/radix_page.dart';
 import 'unix_time/unix_time_page.dart';
 import 'base64_tool/base64_page.dart';
 import 'jwt_tool/jwt_page.dart';
@@ -48,6 +50,18 @@ final List<ToolModule> kModules = [
     group: '编码 & 数据',
     keywords: ['jwt', 'token', 'jws', '令牌', 'header', 'payload'],
     builder: (_) => const JwtPage(),
+  ),
+  ToolModule(
+    id: 'radix',
+    title: '多进制转换器',
+    subtitle: '二/八/十/十六进制 + 自定义 (2~36) 实时互转',
+    icon: Icons.numbers,
+    group: '编码 & 数据',
+    keywords: [
+      'radix', 'base', 'binary', 'octal', 'hex', 'decimal', 'convert',
+      '进制', '二进制', '八进制', '十进制', '十六进制', '转换'
+    ],
+    builder: (_) => const RadixPage(),
   ),
   ToolModule(
     id: 'x509',
@@ -164,14 +178,3 @@ final List<ToolModule> kModules = [
 
 ToolModule moduleById(String id) =>
     kModules.firstWhere((m) => m.id == id, orElse: () => kModules.first);
-
-/// 当前选中模块 id。
-class SelectedModule extends Notifier<String> {
-  @override
-  String build() => 'json';
-
-  void select(String id) => state = id;
-}
-
-final selectedModuleProvider =
-    NotifierProvider<SelectedModule, String>(SelectedModule.new);

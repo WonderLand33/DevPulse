@@ -126,21 +126,6 @@ class _SidebarState extends ConsumerState<Sidebar> {
               ],
             ),
           ),
-          const Divider(height: 1),
-          // 底部快捷提示
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: Dims.gapMd, vertical: Dims.gapSm),
-            child: Row(
-              children: [
-                Icon(Icons.keyboard_command_key,
-                    size: 13, color: p.textSecondary),
-                const SizedBox(width: 6),
-                Text('Ctrl+K 快速唤醒',
-                    style: TextStyle(color: p.textSecondary, fontSize: 11.5)),
-              ],
-            ),
-          ),
         ],
       ),
     );
