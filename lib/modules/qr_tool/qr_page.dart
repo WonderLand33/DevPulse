@@ -48,7 +48,11 @@ class _QrPageState extends ConsumerState<QrPage> {
           onSelectionChanged: (s) => setState(() => _decodeMode = s.first),
         ),
       ],
-      body: _decodeMode ? const _DecodeTab() : const _GenerateTab(),
+      // IndexedStack 让两个子页始终保持挂载，切换 tab 不清空已输入的内容。
+      body: IndexedStack(
+        index: _decodeMode ? 1 : 0,
+        children: const [_GenerateTab(), _DecodeTab()],
+      ),
     );
   }
 }

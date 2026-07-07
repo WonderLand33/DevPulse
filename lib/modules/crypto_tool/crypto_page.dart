@@ -37,11 +37,11 @@ class _CryptoPageState extends ConsumerState<CryptoPage> {
           onSelectionChanged: (s) => setState(() => _tab = s.first),
         ),
       ],
-      body: switch (_tab) {
-        1 => const _AesTab(),
-        2 => const _RsaTab(),
-        _ => const _HashTab(),
-      },
+      // IndexedStack 让三个子页始终保持挂载，切换 tab 不清空已输入的内容。
+      body: IndexedStack(
+        index: _tab,
+        children: const [_HashTab(), _AesTab(), _RsaTab()],
+      ),
     );
   }
 }

@@ -47,7 +47,11 @@ class _Base64PageState extends ConsumerState<Base64Page> {
           onSelectionChanged: (s) => setState(() => _imageMode = s.first),
         ),
       ],
-      body: _imageMode ? const _ImageTab() : const _TextTab(),
+      // IndexedStack 让两个子页始终保持挂载，切换 tab 不清空已输入的内容。
+      body: IndexedStack(
+        index: _imageMode ? 1 : 0,
+        children: const [_TextTab(), _ImageTab()],
+      ),
     );
   }
 }
